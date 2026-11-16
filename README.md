@@ -1,5 +1,7 @@
 # Ombi on Railway
 
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template/ombi?utm_medium=integration&utm_source=button&utm_campaign=ombi)
+
 Railway template for [Ombi](https://ombi.io), the self-hosted media request manager for Plex, Emby and Jellyfin users. Your users ask for movies, TV shows and music in Ombi, and Ombi sends approved requests to Sonarr, Radarr or Lidarr.
 
 ## What it deploys
