@@ -1,0 +1,42 @@
+#!/usr/bin/with-contenv bash
+# shellcheck shell=bash
+#
+# First-boot setup for the Railway template.
+# Ombi's setup wizard is public until an admin exists, so on a fresh volume this
+# creates the admin from OMBI_ADMIN_USERNAME / OMBI_ADMIN_PASSWORD as soon as
+# Ombi answers, and sets the application URL to the Railway public domain.
+# On later boots (wizard already done) it does nothing.
+
+log() { echo "[ombi-bootstrap] $*"; }
+BASE="http://127.0.0.1:3579"
+
+status=""
+for _ in $(seq 1 600); do
+    status=$(curl -fsS "${BASE}/api/v1/Status/Wizard" 2>/dev/null) && break
+    sleep 1
+done
+
+if [[ -z "${status}" ]]; then
+    log "Ombi did not answer within 10 minutes; skipping admin setup"
+elif [[ "$(jq -r '.result' <<<"${status}")" == "true" ]]; then
+    log "setup already complete; nothing to do"
+elif [[ -z "${OMBI_ADMIN_PASSWORD:-}" ]]; then
+    log "WARNING: OMBI_ADMIN_PASSWORD is empty, so the setup wizard is open to anyone who opens the URL first"
+else
+    if [[ -n "${RAILWAY_PUBLIC_DOMAIN:-}" ]]; then
+        jq -n --arg url "https://${RAILWAY_PUBLIC_DOMAIN}" '{applicationName:"Ombi", applicationUrl:$url}' |
+            curl -fsS -o /dev/null -H 'Content-Type: application/json' --data @- "${BASE}/api/v2/Wizard/config" &&
+            log "application URL set to https://${RAILWAY_PUBLIC_DOMAIN}"
+    fi
+    user="${OMBI_ADMIN_USERNAME:-admin}"
+    result=$(jq -n --arg u "${user}" --arg p "${OMBI_ADMIN_PASSWORD}" \
+        '{username:$u, password:$p, usePlexAdminAccount:false}' |
+        curl -sS -H 'Content-Type: application/json' --data @- "${BASE}/api/v1/Identity/Wizard")
+    if [[ "$(jq -r '.result' <<<"${result}" 2>/dev/null)" == "true" ]]; then
+        log "created admin user '${user}' and completed the setup wizard"
+    else
+        log "admin setup failed: ${result}"
+    fi
+fi
+
+exec sleep infinity
